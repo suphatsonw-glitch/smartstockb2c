@@ -1519,16 +1519,116 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
-  function exportCsv(issuesOnly) {
+  /* ---------- สร้างไฟล์ Excel (.xlsx) เอง ไม่พึ่งไลบรารีภายนอก ใช้ออฟไลน์ได้ ---------- */
+  const CRC_TABLE = (function () {
+    const t = new Uint32Array(256)
+    for (let n = 0; n < 256; n++) {
+      let c = n
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+      t[n] = c >>> 0
+    }
+    return t
+  })()
+  function crc32(bytes) {
+    let c = 0xffffffff
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8)
+    return (c ^ 0xffffffff) >>> 0
+  }
+  function zipStore(files) {
+    const enc = new TextEncoder()
+    const now = new Date()
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+    const parts = []
+    const central = []
+    let offset = 0
+    files.forEach((f) => {
+      const nameB = enc.encode(f.name)
+      const data = enc.encode(f.data)
+      const crc = crc32(data)
+      const lh = new DataView(new ArrayBuffer(30))
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true)
+      lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, crc, true)
+      lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nameB.length, true); lh.setUint16(28, 0, true)
+      parts.push(new Uint8Array(lh.buffer), nameB, data)
+      const ch = new DataView(new ArrayBuffer(46))
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true)
+      ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true)
+      ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nameB.length, true)
+      ch.setUint32(42, offset, true)
+      central.push(new Uint8Array(ch.buffer), nameB)
+      offset += 30 + nameB.length + data.length
+    })
+    let cdSize = 0
+    central.forEach((c) => { cdSize += c.length })
+    const end = new DataView(new ArrayBuffer(22))
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true)
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true)
+    return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  }
+  function xmlEsc(v) {
+    return String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  }
+  function buildXlsx(rows, meta) {
+    const head = ['วันที่', 'สาขา', 'รหัสสินค้า', 'ชื่อสินค้า', 'Packsize', 'จำนวนในระบบ', 'นับจริง', 'ผลต่าง', 'สถานะ', 'ผู้นับ']
+    const col = (i) => String.fromCharCode(65 + i)
+    const tcell = (ref, v, st) => '<c r="' + ref + '" t="inlineStr"' + (st ? ' s="' + st + '"' : '') + '><is><t xml:space="preserve">' + xmlEsc(v == null ? '' : v) + '</t></is></c>'
+    const ncell = (ref, v) => '<c r="' + ref + '"><v>' + v + '</v></c>'
+    const numOrText = (ref, v) => (typeof v === 'number' && isFinite(v) ? ncell(ref, v) : (v == null || v === '' ? '' : tcell(ref, v)))
+    let sheetRows = '<row r="1">' + head.map((h, i) => tcell(col(i) + '1', h, 1)).join('') + '</row>'
+    rows.forEach((r, idx) => {
+      const n = idx + 2
+      const d = diffOf(r)
+      sheetRows += '<row r="' + n + '">' +
+        tcell('A' + n, meta.date) + tcell('B' + n, meta.branch) + tcell('C' + n, r.sku) + tcell('D' + n, r.name) + tcell('E' + n, r.pack) +
+        numOrText('F' + n, r.sys) + numOrText('G' + n, r.counted) + numOrText('H' + n, d) +
+        tcell('I' + n, statusOf(r)) + tcell('J' + n, meta.user) + '</row>'
+    })
+    const widths = [12, 18, 16, 38, 12, 14, 10, 10, 16, 14]
+    const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    const sheet = X + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+      '<cols>' + widths.map((w, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>').join('') + '</cols>' +
+      '<sheetData>' + sheetRows + '</sheetData></worksheet>'
+    const styles = X + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+      '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2E8F0"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+      '</styleSheet>'
+    return zipStore([
+      { name: '[Content_Types].xml', data: X + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+      { name: '_rels/.rels', data: X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+      { name: 'xl/workbook.xml', data: X + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="นับสต๊อก" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+      { name: 'xl/_rels/workbook.xml.rels', data: X + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+      { name: 'xl/styles.xml', data: styles },
+      { name: 'xl/worksheets/sheet1.xml', data: sheet }
+    ])
+  }
+  function downloadBlob(filename, blob) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+  function exportCsv(issuesOnly, fmt) {
     if (!S.baseline) return
     const b = branchById(S.branchId)
     let rows = rowsNow()
     if (issuesOnly) rows = rows.filter((r) => statusOf(r) !== 'ตรง')
     if (!rows.length) { toast('ไม่มีรายการให้ส่งออก', 'err'); return }
     const meta = { date: S.baseline.date, branch: b.name, user: SESSION ? SESSION.user : '' }
-    const name = safeFileName('นับสต๊อก_' + b.name + '_' + meta.date + (issuesOnly ? '_เฉพาะผิดปกติ' : '')) + '.csv'
+    const name = safeFileName('นับสต๊อก_' + b.name + '_' + meta.date + (issuesOnly ? '_เฉพาะผิดปกติ' : '')) + (fmt === 'xlsx' ? '.xlsx' : '.csv')
     try {
-      downloadText(name, buildCsv(rows, meta))
+      if (fmt === 'xlsx') downloadBlob(name, buildXlsx(rows, meta))
+      else downloadText(name, buildCsv(rows, meta))
       toast('ส่งออกไฟล์แล้ว ' + rows.length + ' แถว (' + name + ')', 'ok', 3500)
     } catch (e) {
       toast('ส่งออกไฟล์ไม่สำเร็จ: ' + (e && e.message ? e.message : e), 'err', 4500)
@@ -1539,13 +1639,15 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const rows = rowsNow()
     const issues = rows.filter((r) => statusOf(r) !== 'ตรง').length
     openDialog({
-      title: 'ส่งออกไฟล์ (CSV)',
-      html: '<div class="line">ไฟล์เปิดได้ใน Excel / Google Sheets ภาษาไทยไม่เพี้ยน</div>' +
+      title: 'ส่งออกไฟล์ (Excel / CSV)',
+      html: '<div class="line">เลือกส่งออกเป็น Excel (.xlsx) หรือ CSV ภาษาไทยไม่เพี้ยน</div>' +
         '<div class="line muted">ทุกรายการ ' + rows.length + ' แถว · เฉพาะผิดปกติ (ผลต่าง/ไม่ได้นับ/นอก SAP) ' + issues + ' แถว</div>',
       col: true,
       buttons: [
-        { label: '⬇️ ทุกรายการ (' + rows.length + ')', cls: 'btn-primary', onClick: () => { closeModal(); exportCsv(false) } },
-        { label: '⚠️ เฉพาะรายการผิดปกติ (' + issues + ')', onClick: () => { closeModal(); exportCsv(true) } },
+        { label: '📗 Excel ทุกรายการ (' + rows.length + ')', cls: 'btn-primary', onClick: () => { closeModal(); exportCsv(false, 'xlsx') } },
+        { label: '📗 Excel เฉพาะรายการผิดปกติ (' + issues + ')', onClick: () => { closeModal(); exportCsv(true, 'xlsx') } },
+        { label: '⬇️ CSV ทุกรายการ (' + rows.length + ')', onClick: () => { closeModal(); exportCsv(false, 'csv') } },
+        { label: '⚠️ CSV เฉพาะรายการผิดปกติ (' + issues + ')', onClick: () => { closeModal(); exportCsv(true, 'csv') } },
         { label: 'ยกเลิก', cls: 'btn-ghost' }
       ]
     })
@@ -1862,7 +1964,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       actCard({ cls: 'primary', icon: '📦', title: (ready && stt.counted > 0 ? 'นับต่อ' : 'เริ่มนับสินค้า'), sub: ready ? 'นับแล้ว ' + stt.counted + ' / ' + stt.total + ' SKU' : 'ต้องวางข้อมูล SAP ก่อน', act: 'nav', to: '#/count', disabled: !ready }) +
       actCard({ icon: '📥', title: ready ? 'วางข้อมูล SAP ใหม่' : 'วางข้อมูล SAP', sub: ready ? 'แทนที่ฐานข้อมูลเดิมของวันนี้ (วางผิดแก้ได้)' : 'คัดลอกจาก SAP/Excel แล้ววาง', act: 'nav', to: '#/import' }) +
       actCard({ icon: '📋', title: 'สรุปและส่งข้อมูล', sub: 'ตรวจว่านับอะไร/ไม่ได้นับอะไร แล้วส่งเข้า Google Sheet', act: 'nav', to: '#/summary', disabled: !ready }) +
-      actCard({ icon: '⬇️', title: 'ส่งออกไฟล์ CSV', sub: 'เปิดใน Excel ได้ (ทุกรายการ/เฉพาะผิดปกติ)', act: 'export', disabled: !ready }) +
+      actCard({ icon: '⬇️', title: 'ส่งออกไฟล์ Excel / CSV', sub: 'ทุกรายการ/เฉพาะผิดปกติ', act: 'export', disabled: !ready }) +
       actCard({ icon: '🔄', title: 'โหลดฐานข้อมูลล่าสุดจาก Google Sheet', sub: 'ใช้เมื่อเครื่องอื่นเป็นคนวางข้อมูล', act: 'refresh-db', disabled: !st.url }) +
       (ready && nCounts ? actCard({ cls: 'danger', icon: '🗑', title: 'ล้างค่านับวันนี้', sub: 'เริ่มนับใหม่ทั้งหมด (ข้อมูลที่ส่ง Sheet ไปแล้วไม่ถูกลบ)', act: 'reset-counts' }) : '') +
       '</div>'
@@ -2017,7 +2119,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       '<div class="stat ' + (st.uncounted ? 'warn' : 'ok') + '"><b>' + st.uncounted + '</b><span>ยังไม่ได้นับ</span></div>' +
       '<div class="stat ' + (st.diffN ? 'err' : 'ok') + '"><b>' + st.diffN + '</b><span>ผลต่างไม่ตรง</span></div></div>' +
       '<div class="sumline">นับจริงรวม ' + fmtNum(st.sumCnt) + ' ชิ้น · ในระบบรวม ' + fmtNum(st.sumSys) + ' ชิ้น' + (st.off ? ' · มีรายการนอก SAP ' + st.off + ' รายการ' : '') + '</div>' +
-      '<div class="toolrow"><button type="button" class="btn btn-secondary" data-act="export">⬇️ ส่งออกไฟล์ CSV</button></div>' +
+      '<div class="toolrow"><button type="button" class="btn btn-secondary" data-act="export">⬇️ ส่งออกไฟล์ Excel / CSV</button></div>' +
       '<div class="tabs">' + tabs.map((t) => '<button type="button" class="tab' + (S.sumTab === t[0] ? ' on' : '') + '" data-act="sum-tab" data-t="' + t[0] + '">' + esc(t[1]) + ' ' + t[2] + '</button>').join('') + '</div>' +
       '<div class="tablist">' + (list.length ? list.map(rowHtml).join('') : '<div class="empty">' + (S.sumTab === 'todo' ? '🎉 นับครบทุกรายการแล้ว' : 'ไม่มีรายการ') + '</div>') + '</div>' +
       '<p class="muted" style="margin:10px 2px 0;font-size:14px">แตะรายการเพื่อแก้ไขหรือใส่จำนวนที่นับ — รายการที่ "ยังไม่ได้นับ" จะถูกบันทึกลง Sheet ว่า "ไม่ได้นับ"</p>'
@@ -2075,7 +2177,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           '<div class="line">เขียน ' + esc((res && res.written) || rows.length) + ' แถว' + (res && res.replaced ? ' (แทนที่ข้อมูลเดิมของวันนี้ ' + esc(res.replaced) + ' แถว)' : '') + '</div>',
         col: true,
         buttons: [
-          { label: '⬇️ ส่งออกไฟล์ CSV เก็บไว้', onClick: () => { closeModal(); openExportDialog() } },
+          { label: '⬇️ ส่งออกไฟล์ Excel / CSV เก็บไว้', onClick: () => { closeModal(); openExportDialog() } },
           { label: 'กลับหน้าหลัก', cls: 'btn-primary', onClick: () => { closeModal(); go('#/') } },
           { label: 'ดูสรุปต่อ', cls: 'btn-ghost' }
         ]
