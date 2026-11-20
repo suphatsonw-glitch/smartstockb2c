@@ -537,8 +537,8 @@ window.PrintKit = (function () {
    ===================================================================== */
 window.APP_CONFIG = {
   // วาง URL ของ Web app ที่ได้จากการ Deploy Apps Script (ลงท้ายด้วย /exec) ระหว่างเครื่องหมายคำพูด
-  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbysxOXEbR7AbxTiQadjY1-T1cUrE78_zrKW5DbSssvEJC4E2oZaPNeB51pL_2QxARIEQw/exec',
-  // URL ของ Apps Script ตัวที่ใช้ซิงก์ค่านับมือถือ ↔ คอม (ชีตแยกของเราเอง) — เว้นว่าง = ใช้ APPS_SCRIPT_URL ด้านบน
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwh61f39okKUMOiZYpbgBb0iKws6CJUnzuM2usHoIGxUGbNml35yA5iZj16ssUZ2WP_/exec',
+  // (ไม่ใช้แล้ว — ทุกอย่างอยู่ในชีตกลางตัวเดียว) เว้นว่าง = ใช้ APPS_SCRIPT_URL ด้านบน
   SYNC_URL: '',
 
   // สาขา + รหัสยืนยัน 4 หลัก
@@ -549,7 +549,8 @@ window.APP_CONFIG = {
   BRANCHES: [
     { id: 'onnut', name: 'อ่อนนุช', pin: '1111', keys: ['อ่อนนุช', 'onnut'] },
     { id: 'ramkhamhaeng', name: 'รามคำแหง', pin: '1234', keys: ['รามคำแหง', 'ramkhamhaeng'] },
-    { id: 'rama4', name: 'พระราม 4', pin: '0000', keys: ['พระราม4', 'rama4'] }
+    { id: 'rama4', name: 'พระราม 4', pin: '0000', keys: ['พระราม4', 'rama4'] },
+    { id: 'official-onnut', name: 'Official Store Onnut', pin: '4321', keys: ['officialstore', 'official', 'ออฟฟิเชียล'] }
   ]
 }
 </script>
@@ -597,7 +598,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   const BRANCHES = CFG.BRANCHES && CFG.BRANCHES.length ? CFG.BRANCHES : [
     { id: 'onnut', name: 'อ่อนนุช', pin: '1111', keys: ['อ่อนนุช', 'onnut'] },
     { id: 'ramkhamhaeng', name: 'รามคำแหง', pin: '1234', keys: ['รามคำแหง', 'ramkhamhaeng'] },
-    { id: 'rama4', name: 'พระราม 4', pin: '0000', keys: ['พระราม4', 'rama4'] }
+    { id: 'rama4', name: 'พระราม 4', pin: '0000', keys: ['พระราม4', 'rama4'] },
+    { id: 'official-onnut', name: 'Official Store Onnut', pin: '4321', keys: ['officialstore', 'official', 'ออฟฟิเชียล'] }
   ]
   const MAX_QTY_DIGITS = 5
   const PIN_LEN = 4
@@ -787,8 +789,25 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     items.forEach((it) => m.set(it.sku, it))
     return m
   }
-  function hasTodayBaseline() {
-    return !!(S.baseline && S.baseline.date === todayKey() && Array.isArray(S.baseline.items) && S.baseline.items.length)
+  // ฐานข้อมูล SAP อยู่ได้ 18 ชม. นับจากเวลาที่วาง (หรือจนกดส่งผลนับ / กดล้างเอง) แล้วรีเซ็ตเอง
+  const BASE_TTL = 18 * 3600000
+  function baseExp(bl) { return bl ? bl.exp || (bl.importedAt ? Date.parse(bl.importedAt) + BASE_TTL : 0) : 0 }
+  function baseValid(bl) { return !!(bl && Array.isArray(bl.items) && bl.items.length && Date.now() < baseExp(bl)) }
+  function hasTodayBaseline() { return baseValid(S.baseline) }
+  // รีเซ็ตหน้าแอป: ล้างฐานข้อมูลและค่านับของสาขานี้ในเครื่อง
+  function resetLocal(reason, quiet) {
+    if (!S.branchId) return
+    lsDel(KEY.cnt(S.branchId, countDate()))
+    lsDel(KEY.db(S.branchId))
+    S.baseline = null
+    S.itemIndex = null
+    S.counts = {}; S.tomb = {}; S.dirty = {}
+    S.submittedAt = null
+    S.notice = null
+    S.pendingReset = false
+    if (!quiet) toast(reason === 'expire' ? '⏰ ฐานข้อมูล SAP ครบ 18 ชม. — รีเซ็ตหน้าแอปแล้ว' : reason === 'submit' ? '✅ รีเซ็ตหน้าแอปแล้ว พร้อมนับรอบใหม่' : reason === 'manual' ? '🧹 ล้างข้อมูลแล้ว' : '🔄 ฐานข้อมูลถูกรีเซ็ตจากเครื่องอื่น (ส่งผลนับ/ล้างข้อมูลแล้ว)', 'ok', 3500)
+    if (route && route.name !== 'home' && SESSION) go('#/')
+    else { rerenderHome(); updateNotice() }
   }
   function countDate() {
     return (S.baseline && S.baseline.date) || todayKey()
@@ -839,8 +858,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     S.notice = null
     S.lastCheck = 0
     S.srvInfo = null
-    const base = lsGet(KEY.db(id), null)
+    let base = lsGet(KEY.db(id), null)
+    if (base && Array.isArray(base.items) && !baseValid(base)) { // หมดอายุแล้ว (ครบ 18 ชม.)
+      const d0 = base.date
+      lsDel(KEY.db(id)); if (d0) lsDel(KEY.cnt(id, d0))
+      base = null
+    }
     S.baseline = base && Array.isArray(base.items) ? base : null
+    S.pendingReset = false
     S.itemIndex = S.baseline ? buildIndex(S.baseline.items) : null
     loadCounts()
   }
@@ -909,7 +934,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const names = (wh && wh.names) || []
     const text = norm(names.join(' '))
     if (!text) return { mismatch: false, hits: [] }
-    const hits = BRANCHES.filter((b) => branchKeys(b).some((k) => text.indexOf(k) >= 0))
+    let hits = BRANCHES.filter((b) => branchKeys(b).some((k) => text.indexOf(k) >= 0))
+    if (hits.some((b) => b.id === 'official-onnut')) hits = hits.filter((b) => b.id !== 'onnut') // "Official Store Onnut" มีคำว่า onnut อยู่ด้วย
     const own = hits.some((b) => b.id === branchId)
     return { mismatch: hits.length > 0 && !own, hits: hits.map((b) => b.name) }
   }
@@ -1571,7 +1597,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           '</tbody></table></div>'
         : '') +
       '<div class="card" style="margin-top:12px">' +
-      (S.baseline && S.baseline.date === todayKey() ? '<div class="line muted" style="margin-bottom:6px">วางใหม่จะแทนที่ฐานข้อมูลเดิมของวันนี้ (' + S.baseline.items.length + ' SKU)</div>' : '') +
+      (hasTodayBaseline() ? '<div class="line muted" style="margin-bottom:6px">วางใหม่จะแทนที่ฐานข้อมูลเดิมของวันนี้ (' + S.baseline.items.length + ' SKU)</div>' : '') +
       '<label class="checkline" style="margin-bottom:2px"><input type="checkbox" id="imp-sync"' + (imp.sync ? ' checked' : '') + (getSettings().url ? '' : ' disabled') + '> ส่งฐานข้อมูลขึ้น Google Sheet ให้เครื่องอื่นใช้ด้วย</label>' +
       '<div class="hint">ไม่ติ๊ก = ใช้เฉพาะเครื่องนี้ (เครื่องอื่นจะยังเห็นฐานข้อมูลเดิมบน Sheet ถ้ามี)</div>' +
       (nCounts
@@ -1587,6 +1613,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const res = await api('saveBaseline', { branch: b.name, date: baseline.date, importedAt: baseline.importedAt, importedBy: baseline.importedBy, items: baseline.items, wh: baseline.wh || { codes: [], names: [] } })
     // เวลาที่ Sheet ประทับให้ (นาฬิกาเซิร์ฟเวอร์) ใช้เทียบข้ามเครื่องได้เสมอ ไม่พึ่งนาฬิกาของมือถือ/คอมที่ไม่ตรงกัน
     if (res && res.importedAt) baseline.importedAt = res.importedAt
+    if (res && res.ttlLeft > 0) baseline.exp = Date.now() + res.ttlLeft
     baseline.synced = true
     baseline.localOnly = false
     lsSet(KEY.db(S.branchId), baseline)
@@ -1601,7 +1628,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     const id = S.branchId
     const doSync = imp.sync && !!st.url
     const baseline = {
-      date: todayKey(), importedAt: nowISO(), importedBy: SESSION.user, source: 'local',
+      date: todayKey(), importedAt: nowISO(), exp: Date.now() + BASE_TTL, importedBy: SESSION.user, source: 'local',
       synced: false, localOnly: !doSync, wh: res.wh, ack: !!(mm.mismatch && imp.ack), items: res.items
     }
     const clearCounts = imp.countsMode === 'clear'
@@ -1847,15 +1874,20 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       S.srvInfo = { date: (data && data.date) || '', count: data && Array.isArray(data.items) ? data.items.length : 0 }
       const today = todayKey()
       S.clockWarn = data && data.serverDate && data.serverDate !== today ? data.serverDate : ''
-      if (data && data.date === today && Array.isArray(data.items) && data.items.length) {
-        const cur = S.baseline && S.baseline.date === today ? S.baseline : null
+      const cur0 = baseValid(S.baseline) ? S.baseline : null
+      if (data && (!Array.isArray(data.items) || !data.items.length) && cur0 && cur0.synced && !cur0.localOnly && !S.pendingReset) {
+        resetLocal('server') // บน Sheet ถูกรีเซ็ตแล้ว (ส่งผลนับ / ครบ 18 ชม. / ล้างจากเครื่องอื่น)
+      } else if (data && Array.isArray(data.items) && data.items.length) {
+        const cur = cur0
         const same = !!(cur && cur.importedAt && cur.importedAt === data.importedAt)
         const protectLocal = !!(cur && !opts.force && (cur.localOnly || cur.synced === false))
         if (same) {
-          if (!cur.synced) { cur.synced = true; cur.localOnly = false; lsSet(KEY.db(id), cur) }
+          if (data.ttlLeft > 0) cur.exp = Date.now() + data.ttlLeft
+          if (!cur.synced) { cur.synced = true; cur.localOnly = false }
+          lsSet(KEY.db(id), cur)
           S.notice = null
         } else if (!protectLocal) {
-          S.baseline = { date: data.date, importedAt: data.importedAt || '', importedBy: data.importedBy || '', source: 'server', synced: true, localOnly: false, wh: data.wh || { codes: [], names: [] }, ack: false, items: data.items }
+          S.baseline = { date: data.date, importedAt: data.importedAt || '', exp: Date.now() + (data.ttlLeft > 0 ? data.ttlLeft : BASE_TTL), importedBy: data.importedBy || '', source: 'server', synced: true, localOnly: false, wh: data.wh || { codes: [], names: [] }, ack: false, items: data.items }
           S.itemIndex = buildIndex(S.baseline.items)
           lsSet(KEY.db(id), S.baseline)
           loadCounts()
@@ -1889,12 +1921,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if (S.branchId !== id) return
       S.lastCheck = Date.now()
       S.srvInfo = { date: (m && m.date) || '', count: (m && m.count) || 0 }
-      const today = todayKey()
-      if (!m || m.date !== today || !m.count) {
+      if (S.pendingReset) return
+      const cur = baseValid(S.baseline) ? S.baseline : null
+      if (!m || !m.count) {
+        if (cur && cur.synced && !cur.localOnly) { resetLocal('server'); return }
         if (S.notice && S.notice.type === 'newdb') { S.notice = null; updateNotice() }
         return
       }
-      const cur = S.baseline && S.baseline.date === today ? S.baseline : null
       if (cur && cur.importedAt === m.importedAt) {
         S.notice = null
         updateNotice()
@@ -2093,6 +2126,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       html += '<div class="status ok"><b>✅ ฐานข้อมูลวันนี้พร้อมแล้ว</b>' +
         '<div class="line">' + base.items.length + ' SKU · ' + (base.source === 'server' ? 'ดึงจาก Google Sheet' : 'วางจากเครื่องนี้') +
         (base.importedAt ? ' · เวลา ' + esc(fmtTimeHM(base.importedAt)) : '') + (base.importedBy ? ' โดย ' + esc(base.importedBy) : '') + '</div>' +
+        '<div class="line muted">⏳ รีเซ็ตเองเวลา ' + esc(fmtTimeHM(new Date(baseExp(base)).toISOString())) + (new Date(baseExp(base)).getDate() !== new Date().getDate() ? ' (พรุ่งนี้)' : '') + ' — หรือเมื่อกดส่งผลนับ</div>' +
         (st.url && base.synced === false && !base.localOnly ? '<div class="line">⚠️ ยังไม่ได้บันทึกขึ้น Google Sheet (เครื่องอื่นจะยังไม่เห็น)</div><button type="button" class="linkbtn" data-act="resync-db">ส่งขึ้น Google Sheet ตอนนี้</button>' : '') +
         (base.localOnly && st.url ? '<div class="line muted">ใช้เฉพาะเครื่องนี้ (ไม่ได้ส่งขึ้น Sheet)</div>' : '') +
         (st.url && S.lastCheck ? '<div class="line muted">เช็คกับ Google Sheet ล่าสุด ' + esc(fmtClock(S.lastCheck)) + '</div>' : '') +
@@ -2107,10 +2141,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       if (!st.url) {
         why = '<div class="line"><b>เครื่องนี้ยังไม่ได้ตั้งค่า URL ของ Google Sheet</b> จึงรับข้อมูลที่เครื่องอื่นวางไม่ได้ — ไปที่ ⚙ ตั้งค่า หรือใส่ URL ในไฟล์ index.html ครั้งเดียวให้ทุกเครื่อง</div>' +
           '<button type="button" class="linkbtn" data-act="nav" data-to="#/setup">ไปตั้งค่า</button>'
-      } else if (S.srvInfo && S.srvInfo.date && S.srvInfo.date !== todayKey()) {
+      } else if (false) {
         why = '<div class="line">บน Google Sheet มีฐานข้อมูลของวันที่ <b>' + esc(fmtDateTH(S.srvInfo.date)) + '</b> แต่เครื่องนี้ใช้วันที่ ' + esc(fmtDateTH(todayKey())) + ' — ตรวจสอบวันเวลาของเครื่อง</div>'
       } else if (S.srvInfo) {
-        why = '<div class="line">✅ เชื่อมต่อ Google Sheet ได้ แต่ <b>บน Sheet ยังไม่มีฐานข้อมูลของสาขา' + esc(bname) + ' ของวันนี้</b> (แท็บ SAP_' + esc(bname) + ' ว่างอยู่)</div>' +
+        why = '<div class="line">✅ เชื่อมต่อ Google Sheet ได้ แต่ <b>บน Sheet ยังไม่มีฐานข้อมูลของสาขา' + esc(bname) + ' ของวันนี้</b> (แท็บ ฐานสต๊อก_' + esc(bname) + ' ว่างอยู่)</div>' +
           '<div class="line">ให้เครื่องที่วาง (คอมพิวเตอร์) เข้าสาขา' + esc(bname) + ' ให้ตรงกัน แล้วตอนวางต้องติ๊ก "ส่งฐานข้อมูลขึ้น Google Sheet" และเห็นข้อความว่าบันทึกขึ้น Sheet แล้ว</div>' +
           '<div class="line muted">ระบบเช็คจาก Google Sheet ให้อัตโนมัติทุก 15 วินาที — พอคอมวางเสร็จจะขึ้นเองที่นี่</div>' +
           '<button type="button" class="linkbtn" data-act="refresh-db">🔄 เช็คอีกครั้งตอนนี้</button>'
@@ -2144,7 +2178,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       actCard({ icon: '⬇️', title: 'ส่งออกไฟล์ Excel / CSV', sub: 'ทุกรายการ/เฉพาะผิดปกติ', act: 'export', disabled: !ready }) +
       actCard({ icon: '🖨️', title: 'พิมพ์', sub: 'ใบสรุปผลนับ · ใบผลต่าง · ใบนับเปล่าไว้เขียนมือ', act: 'print', disabled: !ready }) +
       actCard({ icon: '🔄', title: 'โหลดฐานข้อมูลล่าสุดจาก Google Sheet', sub: 'ใช้เมื่อเครื่องอื่นเป็นคนวางข้อมูล', act: 'refresh-db', disabled: !st.url }) +
-      (ready && nCounts ? actCard({ cls: 'danger', icon: '🗑', title: 'ล้างค่านับวันนี้', sub: 'เริ่มนับใหม่ทั้งหมด (ข้อมูลที่ส่ง Sheet ไปแล้วไม่ถูกลบ)', act: 'reset-counts' }) : '') +
+      (ready ? actCard({ cls: 'danger', icon: '🧹', title: 'ล้างข้อมูล', sub: 'ล้างค่านับ หรือล้างทั้งฐาน SAP + ค่านับ ทุกเครื่องของสาขานี้ (ผลที่ส่งไปแล้วไม่ถูกลบ)', act: 'reset-counts' }) : '') +
       '</div>'
     $('#view').innerHTML = html
     setDock('')
@@ -2399,11 +2433,10 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     try {
       const res = await api('submitCount', { branch: b.name, date: S.baseline.date, countedBy: SESSION.user, rows: rows })
       S.submittedAt = nowISO()
+      S.dirty = {}
+      S.pendingReset = true // บน Sheet รีเซ็ตแล้ว — เครื่องนี้รีเซ็ตเมื่อกด "เสร็จสิ้น" (ส่งออก/พิมพ์ก่อนได้)
       persistCounts()
       // ส่งสำเนาค่านับไปที่แท็บซิงก์ เพื่อให้คอมพิวเตอร์กด "ดึงผลนับจากมือถือ" ได้ (ถ้าล้มเหลวไม่กระทบการส่งหลัก)
-      let syncWarn = ''
-      await syncCounts()
-      if (SY.state === 'err') syncWarn = SY.msg
       closeModal()
       openDialog({
         title: 'ส่งข้อมูลสำเร็จ',
@@ -2411,14 +2444,13 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           '<div class="done-icon">✅</div>' +
           '<div class="line">ลงแท็บ <b>' + esc(b.name) + '</b> วันที่ ' + esc(fmtDateTH(S.baseline.date)) + '</div>' +
           '<div class="line">เขียน ' + esc((res && res.written) || rows.length) + ' แถว' + (res && res.replaced ? ' (แทนที่ข้อมูลเดิมของวันนี้ ' + esc(res.replaced) + ' แถว)' : '') + '</div>' +
-          (syncWarn
-            ? '<div class="line" style="color:var(--yellow)">⚠️ ซิงก์ค่านับให้เครื่องอื่นไม่สำเร็จ: ' + esc(syncWarn) + '</div>'
-            : '<div class="line">🔗 คอมพิวเตอร์รีเฟรชหน้าเว็บ ก็เห็นค่านับชุดนี้แล้ว</div>'),
+          '<div class="line">🧹 ฐานข้อมูล SAP และค่านับของสาขานี้ถูกรีเซ็ตบน Sheet แล้ว — ทุกเครื่องจะรีเซ็ตตาม</div>' +
+          '<div class="line muted">ต้องการเก็บไฟล์/พิมพ์ ทำก่อนกด "เสร็จสิ้น" ได้ เพราะหลังรีเซ็ตข้อมูลหน้าแอปจะหายไป</div>',
         col: true,
         buttons: [
           { label: '⬇️ ส่งออกไฟล์ Excel / CSV เก็บไว้', onClick: () => { closeModal(); openExportDialog() } },
-          { label: 'กลับหน้าหลัก', cls: 'btn-primary', onClick: () => { closeModal(); go('#/') } },
-          { label: 'ดูสรุปต่อ', cls: 'btn-ghost' }
+          { label: '🖨️ พิมพ์ใบสรุปผลนับ', onClick: () => { closeModal(); printStock('all') } },
+          { label: '✔ เสร็จสิ้น — รีเซ็ตหน้าแอป', cls: 'btn-primary', onClick: () => { closeModal(); resetLocal('submit') } }
         ]
       })
     } catch (e) {
@@ -2457,7 +2489,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   function syncUrl() { return String(CFG.SYNC_URL || '').trim() || getSettings().url }
   function canSync() {
-    return !!(SESSION && S.branchId && hasTodayBaseline() && syncUrl())
+    return !!(SESSION && S.branchId && hasTodayBaseline() && syncUrl() && !S.pendingReset && !(S.baseline && S.baseline.localOnly))
   }
   async function syncCounts() {
     if (!canSync()) return
@@ -2485,6 +2517,12 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       return
     }
     if (S.branchId !== id || countDate() !== date) return
+    if (d && d.reset) {
+      SY.state = 'idle'
+      updateSyncUi()
+      if (!S.pendingReset && S.baseline && S.baseline.synced && !S.baseline.localOnly) resetLocal('server')
+      return
+    }
     if (d && d.serverTime) {
       const off = Math.round(Number(d.serverTime) - (t0 + Date.now()) / 2)
       if (isFinite(off)) { SY.off = off; lsSet('sc_toff', off) }
@@ -2607,6 +2645,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       route = r = { name: 'home' }
     }
     if (S.branchId !== SESSION.branchId) loadBranch(SESSION.branchId)
+    if (S.pendingReset && r.name === 'home') resetLocal('submit', true)
+    else if (S.baseline && !baseValid(S.baseline) && !S.pendingReset) resetLocal('expire', true)
     setMode('app')
     updateTopbar()
     if ((r.name === 'count' || r.name === 'summary') && !hasTodayBaseline()) {
@@ -2692,11 +2732,21 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     'reset-counts': () => {
       const n = Object.keys(S.counts).length
       openDialog({
-        title: 'ล้างค่านับทั้งหมดของวันนี้?',
+        title: '🧹 ล้างข้อมูลสาขานี้?',
         html: '<div class="line">ค่านับที่บันทึกไว้ ' + n + ' รายการ จะหายทั้งหมด กู้คืนไม่ได้ — มือถือ/คอมเครื่องอื่นของสาขานี้จะถูกล้างด้วย</div><div class="line muted">(ข้อมูลที่ส่งเข้า Google Sheet ไปแล้วไม่ถูกลบ)</div>',
         buttons: [
           { label: 'ยกเลิก' },
-          { label: 'ล้างค่านับ', cls: 'btn-danger', onClick: () => { dropAllCounts(); closeModal(); toast('ล้างค่านับแล้ว (เครื่องอื่นจะถูกล้างด้วย)'); rerenderHome() } }
+          { label: '🧹 ล้างทั้งหมด (ฐาน SAP + ค่านับ)', cls: 'btn-danger', onClick: async () => {
+            closeModal()
+            const local = S.baseline && S.baseline.localOnly
+            if (!local && getSettings().url) {
+              busy('กำลังล้างข้อมูลบน Google Sheet…')
+              try { await api('clearBaseline', { branch: branchById(S.branchId).name }) } catch (e) { closeModal(); toast('ล้างบน Sheet ไม่สำเร็จ: ' + e.message, 'err', 4000); return }
+              closeModal()
+            }
+            resetLocal('manual')
+          } },
+          { label: 'ล้างเฉพาะค่านับ', cls: 'btn-danger', onClick: () => { dropAllCounts(); closeModal(); toast('ล้างค่านับแล้ว (เครื่องอื่นจะถูกล้างด้วย)'); rerenderHome() } }
         ]
       })
     },
@@ -2796,13 +2846,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   window.addEventListener('online', () => { pollMeta(); syncCounts() })
   // ดึงค่านับของเครื่องอื่นทุก 20 วินาที ขณะเปิดหน้าเว็บค้างไว้
   setInterval(() => { if (!document.hidden && document.body.dataset.mode === 'app') syncCounts() }, 20000)
+  setInterval(() => { if (SESSION && S.baseline && !baseValid(S.baseline) && !S.pendingReset) resetLocal('expire') }, 30000)
 
   /* ---------- เริ่มทำงาน ---------- */
   cleanupOld()
   render()
 
   if (window.__SC_TEST) {
-    window.__SC = { S, imp, lg, api, rowFor, rowsNow, statsOf, statusOf, handleCode, openCountModal, openCodeModal, openOffSapModal, parseCode, guessColumns, parseDelimited, detectDelimiter, buildItems, buildCsv, csvCell, detectBranchMismatch, codesChanged, todayKey, go, render, KEY, lsGet, getSettings, getSession, onScanSuccess, doImport, sendCount, pollMeta, refreshDbFromServer, updateNotice, printStock, syncCounts, setCount, dropCount, dropAllCounts, SY }
+    window.__SC = { S, imp, lg, api, rowFor, rowsNow, statsOf, statusOf, handleCode, openCountModal, openCodeModal, openOffSapModal, parseCode, guessColumns, parseDelimited, detectDelimiter, buildItems, buildCsv, csvCell, detectBranchMismatch, codesChanged, todayKey, go, render, KEY, lsGet, getSettings, getSession, onScanSuccess, doImport, sendCount, pollMeta, refreshDbFromServer, updateNotice, printStock, resetLocal, baseValid, syncCounts, setCount, dropCount, dropAllCounts, SY }
   }
 })()
 
