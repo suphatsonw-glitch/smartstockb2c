@@ -387,6 +387,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .subbar .sync-line { margin: 6px 0 0; }
 .tb-home{flex:none;width:40px;height:40px;border:1px solid rgba(255,255,255,.25);border-radius:11px;background:rgba(255,255,255,.12);color:#fff;font-size:19px;display:grid;place-items:center;text-decoration:none;transition:background .15s,transform .1s}.tb-home:active{background:rgba(255,255,255,.3);transform:scale(.94)}@media(max-width:380px){.topbar .tb-logo{display:none}}
 .login-home{position:absolute;left:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:2;display:flex;align-items:center;gap:6px;height:40px;padding:0 14px 0 10px;border-radius:99px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;font:700 15px Sarabun,sans-serif;text-decoration:none}.login-home:active{background:rgba(255,255,255,.3)}
+
+.row-why.over { color: #1a5e8a; background: #e3f1fb; }
+.row-why { font-size: 12.5px; font-weight: 800; color: #8a5a00; background: #fff4cc; border-radius: 6px; padding: 1px 6px; margin-top: 3px; display: inline-block; }
+.login-logo img, .tb-logo img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.login-logo, .tb-logo { overflow: hidden; padding: 0; }
 </style>
 <style>
 /* ---------- ใบพิมพ์ (PrintKit) ---------- */
@@ -428,6 +433,23 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .pk-doc .pk-sign .ln { border-bottom: 1px dotted #000; height: 26px; margin: 0 6px 4px; }
 .pk-doc .pk-foot { margin-top: 14px; font-size: 10.5px; color: #555; display: flex; justify-content: space-between; }
 .pk-doc .pk-empty { text-align: center; padding: 18px; color: #555; }
+
+.pk-doc .pk-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 10px}
+.pk-doc .pk-tiles div{border:1px solid var(--pgm);border-radius:6px;padding:4px 8px;text-align:center}
+.pk-doc .pk-tiles span{display:block;font-size:10px;color:#4b6b55}
+.pk-doc .pk-tiles b{font-size:12.5px;color:var(--pg)}
+.pk-doc .pk-tiles .bad{background:#fdecea;border-color:#f0b9b2;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pk-doc .pk-tiles .bad b{color:#a93226}
+.pk-doc .pk-tiles .warn{background:#fff7e0;border-color:#f3d98a;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pk-doc .pk-tiles .warn b{color:#8a6200}
+.pk-doc h2.pk-sec{font-size:14px;margin:12px 0 5px;color:var(--pg);border-left:4px solid var(--pg2);padding-left:7px}
+.pk-doc h2.pk-sec.bad{color:#a93226;border-color:#c0392b;break-before:auto}
+.pk-doc tr.grp td{background:#eef6f1;font-weight:800;color:var(--pg);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+.pk-doc tr.tot td{font-weight:800;background:var(--pgl);color:var(--pg);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pk-doc h2.pk-sec.bad{break-before:auto}
+.pk-doc .pk-sub2{display:none;font-size:11px;color:#4b6b55;margin:14px 0 4px;border-top:1px dashed var(--pgm);padding-top:8px}
+@media print{.pk-doc .pk-sub2{display:block;break-before:page;page-break-before:always;border:0;padding:0;margin-top:0}}
+@media screen{.pk-doc .pk-sub2{display:block}}
+
 /* ธีมเขียว */
 .pk-doc { --pg: #145f2f; --pg2: #1a7a3c; --pgl: #e8f5ee; --pgm: #b8dfc8; }
 .pk-doc .pk-head { border-bottom: 3px solid var(--pg2); }
@@ -461,6 +483,7 @@ window.PrintKit = (function () {
   function stamp() { var d = new Date(); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) }
   // doc = { title, sub, docNoLabel, meta:[[label,value]], cols:[{h, cls, w}], rows:[{cells:[], hl}], foot:[cells]|null, summary:html, noteBox:label|null, sign:[labels], empty }
   function render(doc) {
+    if (doc && doc.raw) return doc.raw
     var h = '<div class="pk-doc">'
     h += '<div class="pk-head"><div>' + (doc.kicker ? '<small class="pk-kick">' + esc(doc.kicker) + '</small>' : '') + '<h1>' + esc(doc.title) + '</h1>' + (doc.sub ? '<div class="pk-sub">' + esc(doc.sub) + '</div>' : '') + '</div>' +
       '<div class="pk-docno">' + esc(doc.docNoLabel || 'เลขที่เอกสาร') + ' ......................</div></div>'
@@ -559,7 +582,7 @@ window.APP_CONFIG = {
   <header class="topbar" id="topbar">
     <a class="tb-home" href="https://suphatsonw-glitch.github.io/homepage/" aria-label="กลับหน้าโฮม" title="กลับหน้าโฮม">🏠</a>
     <button type="button" class="tb-btn tb-back" id="tb-back" data-act="nav" data-to="#/login" aria-label="กลับ">‹</button>
-    <div class="tb-logo" aria-hidden="true">🥬</div>
+    <div class="tb-logo" aria-hidden="true">📦</div>
     <div class="tb-text">
       <div class="tb-title" id="tb-title"></div>
       <div class="tb-sub" id="tb-sub"></div>
@@ -765,6 +788,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     branchId: null,
     baseline: null, // { date, items:[{sku,name,pack,qty}], importedAt, importedBy, source, synced, localOnly, wh:{codes,names}, ack }
     itemIndex: null,
+    returns: [], // ตีคืนล่าสุดจากชีต (ใช้ใส่เหตุผลผลต่าง)
+    hist: [], // ผลนับที่ส่งแล้วย้อนหลัง (ใช้บอกว่าเกินมาตั้งแต่วันไหน)
     counts: {}, // { SKU: { q, n, p, t, by } }  t = เวลาที่แก้ (ใช้ตัดสินว่าค่าไหนใหม่กว่าตอนซิงก์)
     tomb: {}, // { SKU: t } รายการที่ถูกล้างค่านับ (ต้องบอกเครื่องอื่นด้วย)
     dirty: {}, // { SKU: 1 } รายการที่แก้ในเครื่องนี้แต่ยังไม่ได้ซิงก์ขึ้นเซิร์ฟเวอร์
@@ -895,6 +920,87 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return rows
   }
   const diffOf = (r) => (r.counted == null ? null : Math.round((r.counted - r.sys) * 1000) / 1000)
+  /* ---------- เหตุผลผลต่าง: ตีคืนคลัง ----------
+     ถ้านับขาด (ผลต่างติดลบ) เท่ากับยอดตีคืนของรหัสเดียวกัน (ดึงจากแท็บ ซิงค์ตีคืน_สาขา ย้อนหลัง 30 วัน)
+     → ใส่เหตุผล "ตีคืนคลัง 20/11 จำนวน 3, 21/11 จำนวน 2" จนกว่าผลต่างจะไม่เท่ากับยอดนั้น (SAP ตัดสต๊อกแล้ว) */
+  const r3x = (x) => Math.round(x * 1000) / 1000
+  function returnMatch(sku, short) {
+    const today = todayKey()
+    const list = (S.returns || []).filter((x) => x.code === sku && x.date <= today && x.qty > 0).sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts)
+    if (!list.length) return null
+    let cum = 0
+    const pick = []
+    for (const x of list) { // ใหม่ → เก่า: ของที่เพิ่งตีคืนมักยังไม่ถูกตัดใน SAP
+      cum = r3x(cum + x.qty); pick.push(x)
+      if (cum === short) return pick
+      if (cum > short) break
+    }
+    const n = Math.min(list.length, 12)
+    for (let m = 1; m < (1 << n); m++) {
+      let s = 0
+      const p = []
+      for (let i = 0; i < n; i++) if (m & (1 << i)) { s += list[i].qty; p.push(list[i]) }
+      if (r3x(s) === short) return p
+    }
+    return null
+  }
+  function retReason(r) {
+    if (!r || r.off || r.counted == null) return ''
+    const d = diffOf(r)
+    if (!(d < 0)) return ''
+    const p = returnMatch(r.sku, r3x(-d))
+    if (!p) return ''
+    // ส่งคืนคลังแล้ว → "ตีคืนคลัง <วันที่ส่ง> จำนวน n" · ยังไม่ส่ง → "รอตีคืนคลัง (บันทึก <วันที่> จำนวน n)"
+    const g = {}
+    p.forEach((x) => { const k = (x.sent ? 'S' + x.sent : 'P' + x.date); g[k] = r3x((g[k] || 0) + x.qty) })
+    const dd = (k) => { const q = k.split('-'); return Number(q[2]) + '/' + Number(q[1]) }
+    const ks = Object.keys(g).sort((a, b) => a.slice(1).localeCompare(b.slice(1)))
+    const sent = ks.filter((k) => k[0] === 'S').map((k) => dd(k.slice(1)) + ' จำนวน ' + fmtNum(g[k]))
+    const pend = ks.filter((k) => k[0] === 'P').map((k) => dd(k.slice(1)) + ' จำนวน ' + fmtNum(g[k]))
+    return [sent.length ? 'ตีคืนคลัง ' + sent.join(', ') : '', pend.length ? 'รอตีคืนคลัง (บันทึก ' + pend.join(', ') + ')' : ''].filter(Boolean).join(' · ')
+  }
+  // นับเกินสต๊อก: "เกินสต๊อกมาตั้งแต่ 18/11 จำนวน +2" — ย้อนดูผลนับที่ส่งแล้ว ถ้าวันก่อนๆ เกินเท่าเดิมต่อเนื่อง ใช้วันแรกที่เริ่มเกิน
+  function overReason(r) {
+    if (!r || r.off || r.counted == null) return ''
+    const d = diffOf(r)
+    if (!(d > 0)) return ''
+    const cur = countDate()
+    const hist = (S.hist || []).filter((x) => x.sku === r.sku && x.date < cur).sort((a, b) => b.date.localeCompare(a.date))
+    let start = cur
+    for (const x of hist) {
+      if (x.diff == null) continue // วันนั้นไม่ได้นับ ข้ามไป
+      if (r3x(x.diff) === d) start = x.date
+      else break
+    }
+    const q = start.split('-')
+    return 'เกินสต๊อกมาตั้งแต่ ' + Number(q[2]) + '/' + Number(q[1]) + ' จำนวน +' + fmtNum(d)
+  }
+  function reasonOf(r) { return retReason(r) || overReason(r) }
+  function whyHtml(r) {
+    const a = retReason(r)
+    if (a) return '<div class="row-why">↩️ ' + esc(a) + '</div>'
+    const o = overReason(r)
+    return o ? '<div class="row-why over">📈 ' + esc(o) + '</div>' : ''
+  }
+  let retBusy = false
+  async function loadReturns() {
+    if (retBusy || !SESSION || !S.branchId || !getSettings().url) return
+    retBusy = true
+    const id = S.branchId
+    try {
+      const d = new Date(Date.now() - 30 * 86400000)
+      const data = await api('getReturns', { branch: branchById(id).name, from: todayKey(d) })
+      const hd = await api('getCountHistory', { branch: branchById(id).name, from: todayKey(new Date(Date.now() - 45 * 86400000)) }).catch(() => null)
+      if (S.branchId !== id) return
+      const before = JSON.stringify([S.returns || [], S.hist || []])
+      S.returns = (data && data.items) || []
+      if (hd && hd.items) S.hist = hd.items
+      if (JSON.stringify([S.returns, S.hist || []]) !== before && route) {
+        if (route.name === 'summary') refreshSummary()
+        else if (route.name === 'count') refreshCountView()
+      }
+    } catch (e) { /* ดึงไม่ได้ก็ไม่เป็นไร แค่ไม่มีเหตุผลอัตโนมัติ */ } finally { retBusy = false }
+  }
   function statusOf(r) {
     if (r.off) return 'นอก SAP'
     if (r.counted == null) return 'ไม่ได้นับ'
@@ -1692,14 +1798,14 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return '"' + s.replace(/"/g, '""') + '"'
   }
   function buildCsv(rows, meta) {
-    const head = ['วันที่', 'สาขา', 'รหัสสินค้า', 'ชื่อสินค้า', 'Packsize', 'จำนวนในระบบ', 'นับจริง', 'ผลต่าง', 'สถานะ', 'ผู้นับ']
+    const head = ['วันที่', 'สาขา', 'รหัสสินค้า', 'ชื่อสินค้า', 'Packsize', 'จำนวนในระบบ', 'นับจริง', 'ผลต่าง', 'สถานะ', 'ผู้นับ', 'เหตุผลผลต่าง']
     const lines = [head.map((h) => csvCell(h, true)).join(',')]
     rows.forEach((r) => {
       const d = diffOf(r)
       lines.push([
         csvCell(meta.date, true), csvCell(meta.branch, true), csvCell(r.sku, true), csvCell(r.name, true), csvCell(r.pack, true),
         csvCell(r.sys), r.counted == null ? '' : csvCell(r.counted), d == null ? '' : csvCell(d),
-        csvCell(statusOf(r), true), csvCell(meta.user, true)
+        csvCell(statusOf(r), true), csvCell(meta.user, true), csvCell(reasonOf(r), true)
       ].join(','))
     })
     return lines.join('\r\n') + '\r\n'
@@ -1770,7 +1876,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     return String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   }
   function buildXlsx(rows, meta) {
-    const head = ['วันที่', 'สาขา', 'รหัสสินค้า', 'ชื่อสินค้า', 'Packsize', 'จำนวนในระบบ', 'นับจริง', 'ผลต่าง', 'สถานะ', 'ผู้นับ']
+    const head = ['วันที่', 'สาขา', 'รหัสสินค้า', 'ชื่อสินค้า', 'Packsize', 'จำนวนในระบบ', 'นับจริง', 'ผลต่าง', 'สถานะ', 'ผู้นับ', 'เหตุผลผลต่าง']
     const col = (i) => String.fromCharCode(65 + i)
     const tcell = (ref, v, st) => '<c r="' + ref + '" t="inlineStr"' + (st ? ' s="' + st + '"' : '') + '><is><t xml:space="preserve">' + xmlEsc(v == null ? '' : v) + '</t></is></c>'
     const ncell = (ref, v) => '<c r="' + ref + '"><v>' + v + '</v></c>'
@@ -1782,9 +1888,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       sheetRows += '<row r="' + n + '">' +
         tcell('A' + n, meta.date) + tcell('B' + n, meta.branch) + tcell('C' + n, r.sku) + tcell('D' + n, r.name) + tcell('E' + n, r.pack) +
         numOrText('F' + n, r.sys) + numOrText('G' + n, r.counted) + numOrText('H' + n, d) +
-        tcell('I' + n, statusOf(r)) + tcell('J' + n, meta.user) + '</row>'
+        tcell('I' + n, statusOf(r)) + tcell('J' + n, meta.user) + tcell('K' + n, reasonOf(r)) + '</row>'
     })
-    const widths = [12, 18, 16, 38, 12, 14, 10, 10, 16, 14]
+    const widths = [12, 18, 16, 38, 12, 14, 10, 10, 16, 14, 34]
     const X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
     const sheet = X + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
@@ -1907,6 +2013,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     rerenderHome()
     updateNotice()
     syncCounts()
+    loadReturns()
   }
   // เช็คแบบเบาเป็นระยะ: มีฐานข้อมูลใหม่บน Sheet ไหม (เช่นคอมเพิ่งวางให้) — ไม่ต้องให้พนักงานออก/เข้าหน้าเองให้ซิงก์
   let pollBusy = false
@@ -2017,7 +2124,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       '<a class="login-home" href="https://suphatsonw-glitch.github.io/homepage/" aria-label="กลับหน้าโฮม">🏠 หน้าโฮม</a>' +
       FRUITS.map((f) => '<div class="fruit-side" style="' + f[1] + ';--k:' + f[2] + '">' + f[0] + '</div>').join('') +
       LEAVES.map((l) => '<div class="leaf" style="left:' + l[0] + ';animation-duration:' + l[1] + 's;animation-delay:' + l[2] + 's;font-size:' + l[3] + 'px">' + l[4] + '</div>').join('') +
-      '<div class="login-brand"><div class="login-logo">🥬</div><div class="b1">นับกระทบสต๊อก</div><div class="b2">Stock Reconciliation · สาขาบริษัท</div></div>' +
+      '<div class="login-brand"><div class="login-logo">📦</div><div class="b1">นับกระทบสต๊อก</div><div class="b2">Stock Reconciliation · สาขาบริษัท</div></div>' +
       (st.url ? '' : '<div class="login-warn">⚠️ เครื่องนี้ยังไม่ได้ตั้งค่า URL ของ Google Sheet — จะรับฐานข้อมูลที่เครื่องอื่นวางไม่ได้ · แตะ ⚙ มุมขวาล่างเพื่อตั้งค่า</div>') +
       '<div class="login-card">' +
       '<h2>🔑 เข้าสู่ระบบสาขา</h2>' +
@@ -2099,6 +2206,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     }
     lsSet(KEY.session, { branchId: b.id, user: name, date: todayKey() })
     saveSettings({ user: name, lastBranch: b.id })
+    if (window.__pushRecentName) window.__pushRecentName(b.id, name)
     SESSION = getSession()
     loadBranch(b.id)
     lg.pin = ''
@@ -2254,7 +2362,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
       }
     }
     return '<button type="button" class="' + cls + '" data-act="open-sku" data-sku="' + esc(r.sku) + '">' +
-      '<div><div class="row-name">' + esc(r.name) + '</div><div class="row-sub"><b>' + esc(r.sku) + '</b>' + esc(r.pack) + (r.off ? '<span class="tag">นอก SAP</span>' : '') + '</div></div>' +
+      '<div><div class="row-name">' + esc(r.name) + '</div><div class="row-sub"><b>' + esc(r.sku) + '</b>' + esc(r.pack) + (r.off ? '<span class="tag">นอก SAP</span>' : '') + '</div>' + whyHtml(r) + '</div>' +
       '<div class="row-sys"><span>ในระบบ</span><b>' + fmtNum(r.sys) + '</b></div>' +
       '<div class="row-cnt">' + cnt + '</div></button>'
   }
@@ -2302,15 +2410,80 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   }
   let sumAnimated = false
   /* ---------- พิมพ์ผลนับ ---------- */
+  // ใบสรุปผลนับ: หน้า 1 เฉพาะรายการที่นับ / หน้า 2 สรุปเฉพาะรายการที่มีผลต่าง
+  function countedSheetHtml() {
+    const e = esc
+    const b = branchById(S.branchId)
+    const bl = S.baseline
+    const sg = (d) => (d > 0 ? '+' + fmtNum(d) : fmtNum(d))
+    const r3 = (x) => Math.round(x * 1000) / 1000
+    const all = rowsNow()
+    const st = statsOf(all)
+    const counted = all.filter((r) => r.counted != null)
+    const short = counted.filter((r) => !r.off && diffOf(r) < 0)
+    const over = counted.filter((r) => !r.off && diffOf(r) > 0)
+    const offs = counted.filter((r) => r.off)
+    const match = counted.filter((r) => !r.off && diffOf(r) === 0)
+    const sq = r3(short.reduce((a, r) => a + diffOf(r), 0))
+    const oq = r3(over.reduce((a, r) => a + diffOf(r), 0))
+    const pd = (n) => (n < 10 ? '0' : '') + n
+    const now = new Date()
+    const stamp = pd(now.getDate()) + '/' + pd(now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + pd(now.getHours()) + ':' + pd(now.getMinutes())
+    const head = (cols) => '<thead><tr>' + cols.map((c) => '<th' + (c[1] ? ' class="n"' : '') + '>' + c[0] + '</th>').join('') + '</tr></thead>'
+    let h = '<div class="pk-doc">'
+    h += '<div class="pk-head"><div><small class="pk-kick">STOCK COUNT</small><h1>ใบสรุปผลนับสต็อก</h1><div class="pk-sub">สาขา' + e(b.name) + ' · เฉพาะรายการที่นับ</div></div><div class="pk-docno">เลขที่เอกสาร ......................</div></div>'
+    const meta = [['สาขา', b.name], ['วันที่นับ', fmtDateTH(bl.date)], ['ผู้นับ / ผู้พิมพ์', SESSION ? SESSION.user : ''], ['ฐานข้อมูล SAP', fmtDateTH(bl.date) + ' ' + (fmtTimeHM(bl.importedAt) || '') + (bl.importedBy ? ' โดย ' + bl.importedBy : '')]]
+    h += '<div class="pk-meta" style="grid-template-columns:repeat(4,1fr)">' + meta.map((m) => '<div><span>' + e(m[0]) + '</span><b>' + e(m[1]) + '</b></div>').join('') + '</div>'
+    const tiles = [['นับแล้ว', st.counted + ' / ' + st.total + ' SKU', ''], ['ตรง', match.length + ' รายการ', ''], ['ขาด', short.length + ' รายการ (' + sg(sq) + ' ชิ้น)', 'bad'], ['เกิน', over.length + ' รายการ (' + sg(oq) + ' ชิ้น)', 'warn'], ['นอก SAP', offs.length + ' รายการ', 'warn']]
+    h += '<div class="pk-tiles">' + tiles.map((t) => '<div class="' + t[2] + '"><span>' + t[0] + '</span><b>' + e(t[1]) + '</b></div>').join('') + '</div>'
+    // ส่วนที่ 1
+    h += '<h2 class="pk-sec">ส่วนที่ 1 · รายการที่นับแล้ว (' + counted.length + ' รายการ)</h2>'
+    h += '<table><colgroup><col style="width:6%"><col style="width:12%"><col><col style="width:13%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"></colgroup>'
+    h += head([['ลำดับ'], ['รหัสสินค้า'], ['ชื่อสินค้า'], ['หน่วย'], ['ในระบบ', 1], ['นับจริง', 1], ['ผลต่าง', 1], ['สถานะ']]) + '<tbody>'
+    let ss = 0, sc = 0, sd = 0
+    if (!counted.length) h += '<tr><td colspan="8" class="pk-empty">ยังไม่มีรายการที่นับ</td></tr>'
+    counted.forEach((r, i) => {
+      const d = r.off ? null : diffOf(r)
+      if (!r.off) { ss += r.sys; sd += d }
+      sc += r.counted
+      h += '<tr' + (r.off || d !== 0 ? ' class="hl"' : '') + '><td class="c">' + (i + 1) + '</td><td class="code">' + e(r.sku) + '</td><td>' + e(r.name) + '</td><td>' + e(r.pack) + '</td><td class="n">' + (r.off ? '-' : fmtNum(r.sys)) + '</td><td class="n">' + fmtNum(r.counted) + '</td><td class="n">' + (r.off ? '' : d ? sg(d) : '0') + '</td><td class="c">' + e(statusOf(r)) + '</td></tr>'
+    })
+    if (counted.length) h += '<tr class="tot"><td></td><td></td><td>รวม ' + counted.length + ' รายการ</td><td></td><td class="n">' + fmtNum(r3(ss)) + '</td><td class="n">' + fmtNum(r3(sc)) + '</td><td class="n">' + sg(r3(sd)) + '</td><td></td></tr>'
+    h += '</tbody></table>'
+    // ส่วนที่ 2 (ขึ้นหน้าใหม่ตอนพิมพ์)
+    const nd = short.length + over.length + offs.length
+    h += '<div class="pk-sub2">ใบสรุปผลนับสต็อก · สาขา' + e(b.name) + ' · วันที่นับ ' + e(fmtDateTH(bl.date)) + ' (ต่อ)</div>'
+    h += '<h2 class="pk-sec bad">ส่วนที่ 2 · สรุปรายการที่มีผลต่าง (' + nd + ' รายการ)</h2>'
+    h += '<table><colgroup><col style="width:6%"><col style="width:12%"><col><col style="width:12%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:22%"></colgroup>'
+    h += head([['ลำดับ'], ['รหัสสินค้า'], ['ชื่อสินค้า'], ['หน่วย'], ['ในระบบ', 1], ['นับจริง', 1], ['ผลต่าง', 1], ['สาเหตุ / การดำเนินการ']]) + '<tbody>'
+    if (!nd) h += '<tr><td colspan="8" class="pk-empty">ไม่มีผลต่าง — นับตรงทุกรายการ 👍</td></tr>'
+    let i = 0
+    ;[['ขาด (นับได้น้อยกว่าระบบ)', short], ['เกิน (นับได้มากกว่าระบบ)', over], ['นอก SAP (ไม่มีในฐานข้อมูล)', offs]].forEach((g) => {
+      if (!g[1].length) return
+      h += '<tr class="grp"><td colspan="8">' + g[0] + ' — ' + g[1].length + ' รายการ</td></tr>'
+      g[1].forEach((r) => {
+        i++
+        const d = r.off ? null : diffOf(r)
+        h += '<tr><td class="c">' + i + '</td><td class="code">' + e(r.sku) + '</td><td>' + e(r.name) + '</td><td>' + e(r.pack) + '</td><td class="n">' + (r.off ? '-' : fmtNum(r.sys)) + '</td><td class="n">' + fmtNum(r.counted) + '</td><td class="n"><b>' + (r.off ? '' : sg(d)) + '</b></td><td>' + e(reasonOf(r)) + '</td></tr>'
+      })
+    })
+    if (nd) h += '<tr class="tot"><td></td><td></td><td>รวมผลต่างสุทธิ</td><td></td><td></td><td></td><td class="n">' + sg(r3(sq + oq)) + '</td><td>ขาด ' + sg(sq) + ' · เกิน ' + sg(oq) + '</td></tr>'
+    h += '</tbody></table>'
+    h += '<div class="pk-note"><b>หมายเหตุ:</b></div>'
+    h += '<div class="pk-sign" style="grid-template-columns:repeat(3,1fr)">' + ['ผู้นับ', 'ผู้ตรวจสอบ', 'ผู้จัดการสาขา'].map((s) => '<div><div class="ln"></div>(.......................................)<br><b>' + s + '</b><br>วันที่ ....../....../......</div>').join('') + '</div>'
+    h += '<div class="pk-foot"><span>พิมพ์เมื่อ ' + stamp + '</span><span>แอปนับสต็อก</span></div></div>'
+    return h
+  }
   function printStock(mode) {
     if (!S.baseline) { toast('ยังไม่มีฐานข้อมูลของวันนี้', 'err'); return }
     const b = branchById(S.branchId)
     const sg = (d) => (d == null ? '' : d > 0 ? '+' + fmtNum(d) : fmtNum(d))
     window.PrintKit.open({
       name: 'พิมพ์ผลนับสต็อก',
-      value: mode || 'all',
-      options: [['all', 'ผลนับทั้งหมด'], ['diff', 'เฉพาะผลต่างไม่ตรง / นอก SAP'], ['todo', 'เฉพาะที่ยังไม่ได้นับ'], ['blank', 'ใบนับเปล่า (ไว้เขียนมือ)']],
+      value: mode || 'counted',
+      options: [['counted', 'ใบสรุปผลนับ (เฉพาะที่นับ + สรุปผลต่าง)'], ['all', 'ผลนับทั้งหมด'], ['diff', 'เฉพาะผลต่างไม่ตรง / นอก SAP'], ['todo', 'เฉพาะที่ยังไม่ได้นับ'], ['blank', 'ใบนับเปล่า (ไว้เขียนมือ)']],
       build: (m) => {
+        if (m === 'counted') return { raw: countedSheetHtml() }
         const all = rowsNow()
         const st = statsOf(all)
         let rows = all
@@ -2342,7 +2515,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
           cols: [{ h: 'ลำดับ', cls: 'c', w: '6%' }, { h: 'รหัสสินค้า', cls: 'code', w: '12%' }, { h: 'ชื่อสินค้า' }, { h: 'หน่วย', w: '13%' }, { h: 'ในระบบ', cls: 'n', w: '9%' }, { h: 'นับจริง', cls: 'n', w: '9%' }, { h: 'ผลต่าง', cls: 'n', w: '9%' }, { h: 'สถานะ', cls: 'c', w: '9%' }],
           rows: rows.map((r, i) => {
             const d = diffOf(r)
-            return { hl: r.off || (d != null && d !== 0), cells: [i + 1, r.sku, r.name, r.pack, r.off ? '-' : fmtNum(r.sys), r.counted == null ? '' : fmtNum(r.counted), r.off ? '' : sg(d), statusOf(r)] }
+            return { hl: r.off || (d != null && d !== 0), cells: [i + 1, r.sku, r.name, r.pack, r.off ? '-' : fmtNum(r.sys), r.counted == null ? '' : fmtNum(r.counted), r.off ? '' : sg(d), statusOf(r) + (reasonOf(r) ? ' · ' + reasonOf(r) : '')] }
           }),
           foot: ['', '', 'รวม ' + rows.length + ' รายการ', '', fmtNum(Math.round(sSys * 1000) / 1000), fmtNum(Math.round(sCnt * 1000) / 1000), sg(Math.round(sDiff * 1000) / 1000), ''],
           noteBox: 'หมายเหตุ / สาเหตุผลต่าง:', sign: ['ผู้นับ', 'ผู้ตรวจสอบ', 'ผู้จัดการสาขา'],
@@ -2428,7 +2601,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   async function sendCount() {
     if (!SESSION) return
     const b = branchById(S.branchId)
-    const rows = rowsNow().map((r) => ({ sku: r.sku, name: r.name, pack: r.pack, sys: r.sys, counted: r.counted, off: r.off }))
+    const rows = rowsNow().map((r) => ({ sku: r.sku, name: r.name, pack: r.pack, sys: r.sys, counted: r.counted, off: r.off, reason: reasonOf(r) }))
     busy('กำลังส่งข้อมูลไป Google Sheet…')
     try {
       const res = await api('submitCount', { branch: b.name, date: S.baseline.date, countedBy: SESSION.user, rows: rows })
@@ -2449,7 +2622,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
         col: true,
         buttons: [
           { label: '⬇️ ส่งออกไฟล์ Excel / CSV เก็บไว้', onClick: () => { closeModal(); openExportDialog() } },
-          { label: '🖨️ พิมพ์ใบสรุปผลนับ', onClick: () => { closeModal(); printStock('all') } },
+          { label: '🖨️ พิมพ์ใบสรุปผลนับ', onClick: () => { closeModal(); printStock('counted') } },
           { label: '✔ เสร็จสิ้น — รีเซ็ตหน้าแอป', cls: 'btn-primary', onClick: () => { closeModal(); resetLocal('submit') } }
         ]
       })
@@ -2665,7 +2838,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     else if (r.name === 'count') viewCount()
     else if (r.name === 'summary') viewSummary()
     enter()
-    if (r.name === 'count' || r.name === 'summary') syncCounts()
+    if (r.name === 'count' || r.name === 'summary') { syncCounts(); loadReturns() }
   }
 
   /* =====================================================================
@@ -2853,10 +3026,52 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   render()
 
   if (window.__SC_TEST) {
-    window.__SC = { S, imp, lg, api, rowFor, rowsNow, statsOf, statusOf, handleCode, openCountModal, openCodeModal, openOffSapModal, parseCode, guessColumns, parseDelimited, detectDelimiter, buildItems, buildCsv, csvCell, detectBranchMismatch, codesChanged, todayKey, go, render, KEY, lsGet, getSettings, getSession, onScanSuccess, doImport, sendCount, pollMeta, refreshDbFromServer, updateNotice, printStock, resetLocal, baseValid, syncCounts, setCount, dropCount, dropAllCounts, SY }
+    window.__SC = { S, imp, lg, api, rowFor, rowsNow, statsOf, statusOf, handleCode, openCountModal, openCodeModal, openOffSapModal, parseCode, guessColumns, parseDelimited, detectDelimiter, buildItems, buildCsv, csvCell, detectBranchMismatch, codesChanged, todayKey, go, render, KEY, lsGet, getSettings, getSession, onScanSuccess, doImport, sendCount, pollMeta, refreshDbFromServer, updateNotice, printStock, resetLocal, baseValid, retReason, overReason, reasonOf, loadReturns, syncCounts, setCount, dropCount, dropAllCounts, SY }
   }
 })()
 
+</script>
+<script>
+/* ชื่อผู้ใช้ล่าสุด สาขาละ 3 ชื่อ (ใช้ร่วมกันทุกแอปในเว็บเดียวกัน) */
+(function () {
+  var K = 'br_recent_names'
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
+  function load() { try { return JSON.parse(localStorage.getItem(K) || '{}') || {} } catch (e) { return {} } }
+  window.__pushRecentName = function (bid, n) {
+    n = String(n || '').trim()
+    if (!bid || !n) return
+    var m = load()
+    var a = (m[bid] || []).filter(function (x) { return x !== n })
+    a.unshift(n)
+    m[bid] = a.slice(0, 3)
+    try { localStorage.setItem(K, JSON.stringify(m)) } catch (e) {}
+  }
+  function draw() {
+    var inp = document.getElementById('lg-name'), sel = document.getElementById('lg-branch')
+    if (!inp || !sel) return
+    var box = document.getElementById('lg-recent')
+    if (!box) {
+      box = document.createElement('div'); box.id = 'lg-recent'; box.className = 'rn-chips'
+      var lab = inp.closest('label') || inp.parentNode
+      lab.parentNode.insertBefore(box, lab.nextSibling)
+    }
+    var a = load()[sel.value] || []
+    box.innerHTML = a.length ? '<span>ชื่อล่าสุด' + (sel.value ? '' : '') + ':</span>' + a.map(function (n) { return '<button type="button" class="rn-chip" data-rn="' + esc(n) + '">' + esc(n) + '</button>' }).join('') : ''
+    box.hidden = !a.length
+  }
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'lg-branch') setTimeout(draw, 0) })
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('.rn-chip') : null
+    if (!b) return
+    e.preventDefault()
+    var inp = document.getElementById('lg-name')
+    if (inp) { inp.value = b.getAttribute('data-rn'); inp.dispatchEvent(new Event('input', { bubbles: true })) }
+  }, true)
+  new MutationObserver(function () { if (document.getElementById('lg-name') && !document.getElementById('lg-recent')) draw() }).observe(document.body, { childList: true, subtree: true })
+  var st = document.createElement('style')
+  st.textContent = '.rn-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 12px;font-size:13px;color:#5f7f5f;font-weight:700}.rn-chip{border:1.5px solid #b8dfc8;background:#e8f5ee;color:#145f2f;border-radius:99px;padding:5px 12px;font:inherit;font-weight:800;cursor:pointer;min-height:34px}.rn-chip:active{transform:scale(.96)}'
+  document.head.appendChild(st)
+})()
 </script>
 </body>
 </html>
